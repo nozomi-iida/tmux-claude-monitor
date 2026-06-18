@@ -19,18 +19,24 @@ emit_rows() {
     at=$(tmux show-options -qv -t "$s" @claude_state_at 2>/dev/null)
     path=$(tmux display-message -p -t "$s" '#{pane_current_path}' 2>/dev/null)
     case "$state" in
-      waiting) icon=$'\033[33m●\033[0m waiting' rank=0 ;; # yellow - needs input
-      idle)    icon=$'\033[32m●\033[0m idle   ' rank=1 ;; # green  - done, your turn
-      working) icon=$'\033[31m●\033[0m working' rank=3 ;; # red    - busy, leave it
-      *)       icon=$'\033[90m●\033[0m   ?    ' rank=2 ;; # grey   - unknown (no hook yet)
+    waiting) icon=$'\033[33m●\033[0m waiting' rank=0 ;; # yellow - needs input
+    idle) icon=$'\033[32m●\033[0m idle   ' rank=1 ;;    # green  - done, your turn
+    working) icon=$'\033[31m●\033[0m working' rank=3 ;; # red    - busy, leave it
+    *) icon=$'\033[90m●\033[0m   ?    ' rank=2 ;;       # grey   - unknown (no hook yet)
     esac
-    if [ -n "$at" ]; then ago="$(( (now - at) / 60 ))m"; else ago='-'; fi
-    # rank \t session \t icon \t path \t age   (rank/session hidden via --with-nth)
-    printf '%s\t%s\t%s\t%s\t%s\n' "$rank" "$s" "$icon" "${path/#$HOME/~}" "$ago"
-  done | sort -n # attention-needed (waiting, idle) float to the top
+    if [ -n "$at" ]; then ago="$(((now - at) / 60))m"; else ago='-'; fi
+    # rank \t session \t icon \t age \t path   (rank/session hidden via --with-nth)
+    printf '%s\t%s\t%s\t%5s\t%s\n' "$rank" "$s" "$icon" "$ago" "${path/#$HOME/~}"
+    # rank asc (attention-needed floats up), then age asc so the session that
+    # finished just now sits at the top of its group. -k4,4n reads the leading
+    # number of the age field ("5m" -> 5; "-" -> 0).
+  done | sort -t$'\t' -k1,1n -k4,4n
 }
 
-[ "${1:-}" = '--list' ] && { emit_rows; exit 0; }
+[ "${1:-}" = '--list' ] && {
+  emit_rows
+  exit 0
+}
 
 if ! command -v fzf >/dev/null 2>&1; then
   tmux display-message "tmux-claude-session-manager: fzf is required for the picker"
@@ -51,7 +57,7 @@ target=$(printf '%s' "$sel" | cut -f2)
 # current window when origin/parent are unknown.
 origin=$(tmux show-options -qv -t "$target" @claude_origin 2>/dev/null)
 parent=$(tmux show-options -gqv @claude_parent 2>/dev/null)
-[ -n "$origin" ] && [ -n "$parent" ] && \
+[ -n "$origin" ] && [ -n "$parent" ] &&
   tmux switch-client -c "$parent" -t "$origin" 2>/dev/null
 
 tmux attach-session -t "$target"

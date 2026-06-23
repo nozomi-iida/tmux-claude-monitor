@@ -9,7 +9,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$DIR/helpers.sh"
 
 emit_rows() {
-  local now pane state at target wname path icon rank ago
+  local now pane state at target wname path cmd icon rank ago
   now=$(date +%s)
   # One row per pane across all sessions. The state is read with `show-options -p`
   # rather than a `#{@claude_state}` format, because the format inherits the
@@ -17,10 +17,17 @@ emit_rows() {
   # never ran Claude. `-p` returns only the value set on the pane itself, so
   # panes without a pane-scoped state come back empty and are skipped.
   tmux list-panes -a -F \
-    '#{pane_id}	#{session_name}:#{window_index}	#{window_name}	#{pane_current_path}' \
-    2>/dev/null | while IFS=$'\t' read -r pane target wname path; do
+    '#{pane_id}	#{session_name}:#{window_index}	#{window_name}	#{pane_current_path}	#{pane_current_command}' \
+    2>/dev/null | while IFS=$'\t' read -r pane target wname path cmd; do
     state=$(tmux show-options -pqv -t "$pane" @claude_state 2>/dev/null)
     [ -z "$state" ] && continue
+    # The pane-scoped state is never cleared when Claude exits, because Claude
+    # runs inside a long-lived shell pane that outlives it. So a pane back at its
+    # shell prompt still carries a stale state. Skip it: if the foreground
+    # command is a shell, Claude is gone regardless of how it ended.
+    case "$cmd" in
+    zsh | bash | fish | sh) continue ;;
+    esac
     at=$(tmux show-options -pqv -t "$pane" @claude_state_at 2>/dev/null)
     case "$state" in
     waiting) icon=$'\033[33m●\033[0m waiting' rank=0 ;; # yellow - needs input

@@ -1,31 +1,33 @@
-# tmux-claude-session-manager
+# tmux-claude-monitor
 
-[![screenshot](./docs/screenshot.jpg)](https://youtu.be/NnTV6r4l5D0)
+Run [Claude Code](https://claude.com/claude-code) in ordinary tmux panes across
+your projects, then **see which are working, waiting, or done — and jump to one**
+from a single popup.
 
-Run many [Claude Code](https://claude.com/claude-code) sessions across your
-projects, each in its own tmux session — then **list them, see which are done
-vs. still working, and jump to one** from a single popup.
+When you have Claude running in several windows/panes at once, you can't tell
+which need you without visiting each. This plugin gives you:
 
-If you launch Claude per-directory (one nested session per project), you quickly
-end up with a dozen of them and no way to tell which are finished without opening
-each one. This plugin gives you:
-
-- 🔢 **A central picker** (`prefix` + `u`) listing every running Claude session.
-- 🟢 **Live status** per session — `working` / `waiting` / `idle` — driven by
+- 🔢 **A central picker** (`prefix` + `u`) listing every pane running Claude.
+- 🟢 **Live status** per pane — `working` / `waiting` / `idle` — driven by
   Claude Code hooks, so you instantly see which need you.
-- 👁️ **A live preview** of each session's screen right in the picker.
-- 🎯 **Smart jump** — selecting a session switches your client to the window it
-  was launched from, then resumes it in a popup over it.
-- 🚀 **A launcher** (`prefix` + `y`) that opens/attaches a Claude session for the
-  current directory.
-- ❌ **Quick kill** (`ctrl-x`) of finished sessions from the picker.
+- 👁️ **A live preview** of each pane's screen right in the picker.
+- 🎯 **Jump** — selecting a pane switches your client to its window and focuses
+  the pane.
 
-Status is optional: without the hooks the picker still lists, previews, jumps,
-and kills — sessions just show `?` instead of a color.
+Unlike a session launcher, this does not start Claude for you — you run Claude
+in your panes as usual, and the picker monitors them. Status is optional:
+without the hooks the picker still lists, previews, and jumps — panes just show
+`?` instead of a color (they only appear once they have a state, though, so the
+hooks are recommended).
+
+> Based on [craftzdog/tmux-claude-session-manager](https://github.com/craftzdog/tmux-claude-session-manager).
+> That plugin launches and manages one Claude **session per directory**; this
+> fork instead monitors Claude state **per pane** in your normal windows and
+> jumps to them.
 
 ## Prerequisites
 
-- **tmux ≥ 3.2** (for `display-popup`)
+- **tmux ≥ 3.2** (for `display-popup`; pane-scoped options need ≥ 3.0)
 - **[fzf](https://github.com/junegunn/fzf)** — the picker UI
 - **[Claude Code](https://claude.com/claude-code)** CLI (the `claude` command)
 - bash; macOS or Linux
@@ -35,52 +37,49 @@ and kills — sessions just show `?` instead of a color.
 Add to `~/.tmux.conf` (or `~/.config/tmux/tmux.conf`):
 
 ```tmux
-set -g @plugin 'craftzdog/tmux-claude-session-manager'
+set -g @plugin 'nozomi-iida/tmux-claude-monitor'
 ```
 
 Then hit `prefix` + <kbd>I</kbd> to install.
 
-> **Keybinding note:** by default the plugin binds `prefix` + `y` (launch) and
-> `prefix` + `u` (list). If your config binds those elsewhere, either change the
-> options below, or make sure the plugin loads **after** your own bindings (put
-> `run '~/.tmux/plugins/tpm/tpm'` _after_ them) so the one you want wins.
+> **Keybinding note:** by default the plugin binds `prefix` + `u` (picker). If
+> your config binds that elsewhere, either change the option below, or make sure
+> the plugin loads **after** your own bindings (put `run '~/.tmux/plugins/tpm/tpm'`
+> _after_ them) so the one you want wins.
 
 ### Manual install
 
 ```sh
-git clone https://github.com/craftzdog/tmux-claude-session-manager ~/clone/path
+git clone https://github.com/nozomi-iida/tmux-claude-monitor ~/clone/path
 ```
 
 Add to `~/.tmux.conf`, then reload (`prefix` + <kbd>r</kbd> or `tmux source ~/.tmux.conf`):
 
 ```tmux
-run-shell ~/clone/path/claude_session_manager.tmux
+run-shell ~/clone/path/claude_monitor.tmux
 ```
 
 ## Usage
 
-| Key            | Action                                                                          |
-| -------------- | ------------------------------------------------------------------------------- |
-| `prefix` + `y` | Launch (or re-attach to) a Claude session for the current directory, in a popup |
-| `prefix` + `u` | Open the session picker                                                         |
+| Key            | Action             |
+| -------------- | ------------------ |
+| `prefix` + `u` | Open the picker    |
 
 Inside the picker:
 
-| Key                       | Action                                                                    |
-| ------------------------- | ------------------------------------------------------------------------- |
-| `enter`                   | Jump to the session (switches to its origin window, resumes in the popup) |
-| `ctrl-x`                  | Kill the highlighted session                                              |
-| `↑` / `↓`, type to filter | fzf navigation                                                            |
+| Key                       | Action                                              |
+| ------------------------- | --------------------------------------------------- |
+| `enter`                   | Jump to the pane (switch to its window, focus pane) |
+| `↑` / `↓`, type to filter | fzf navigation                                      |
 
-Sessions needing your attention (`waiting`, `idle`) sort to the top.
+Panes needing your attention (`waiting`, `idle`) sort to the top.
 
-## Status setup (optional, recommended)
+## Status setup (recommended)
 
 Status comes from [Claude Code hooks](https://code.claude.com/docs/en/hooks)
-that stamp each session's state onto its tmux session. Add the following to your
-Claude Code settings (`~/.claude/settings.json`), merging into any existing
-`hooks` block. Adjust the path if your plugins live elsewhere (e.g.
-`~/.tmux/plugins/...`):
+that stamp each pane's state onto its tmux pane. Add the following to your Claude
+Code settings (`~/.claude/settings.json`), merging into any existing `hooks`
+block. Adjust the path if your plugins live elsewhere (e.g. `~/.tmux/plugins/...`):
 
 ```json
 {
@@ -91,7 +90,7 @@ Claude Code settings (`~/.claude/settings.json`), merging into any existing
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.config/tmux/plugins/tmux-claude-session-manager/scripts/state.sh working"
+            "command": "$HOME/.config/tmux/plugins/tmux-claude-monitor/scripts/state.sh working"
           }
         ]
       }
@@ -102,7 +101,7 @@ Claude Code settings (`~/.claude/settings.json`), merging into any existing
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.config/tmux/plugins/tmux-claude-session-manager/scripts/state.sh waiting"
+            "command": "$HOME/.config/tmux/plugins/tmux-claude-monitor/scripts/state.sh waiting"
           }
         ]
       }
@@ -113,7 +112,7 @@ Claude Code settings (`~/.claude/settings.json`), merging into any existing
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.config/tmux/plugins/tmux-claude-session-manager/scripts/state.sh waiting"
+            "command": "$HOME/.config/tmux/plugins/tmux-claude-monitor/scripts/state.sh waiting"
           }
         ]
       }
@@ -124,7 +123,7 @@ Claude Code settings (`~/.claude/settings.json`), merging into any existing
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.config/tmux/plugins/tmux-claude-session-manager/scripts/state.sh idle"
+            "command": "$HOME/.config/tmux/plugins/tmux-claude-monitor/scripts/state.sh idle"
           }
         ]
       }
@@ -142,37 +141,32 @@ The state machine:
 | `PreToolUse` (`AskUserQuestion`) | 🟡 `waiting` | Asking you a question     |
 | `Stop`                           | 🟢 `idle`    | Turn finished — your move |
 
-> Claude Code reloads `hooks` dynamically — no restart needed. Sessions that are
-> already running start reporting status on their next event once the hooks are
-> added.
+> Claude Code reloads `hooks` dynamically — no restart needed. A pane starts
+> appearing in the picker on its next event once the hooks are added. To make a
+> pane show up the moment Claude starts (before the first prompt), also add a
+> `SessionStart` hook running `state.sh idle`.
 
 ## Options
 
 Set any of these before the plugin loads (defaults shown):
 
 ```tmux
-set -g @claude_launch_key     'y'        # prefix key: launch/open for current dir
-set -g @claude_list_key       'u'        # prefix key: open the picker
-set -g @claude_command        'claude'   # command run in new sessions
-set -g @claude_session_prefix 'claude-'  # tmux session name prefix
-set -g @claude_popup_width     '90%'     # popup width
-set -g @claude_popup_height    '90%'     # popup height
+set -g @claude_list_key      'u'    # prefix key: open the picker
+set -g @claude_popup_width   '90%'  # popup width
+set -g @claude_popup_height  '90%'  # popup height
 ```
 
 ## How it works
 
-- The **launcher** creates a detached `claude-<hash-of-dir>` tmux session running
-  `claude`, records the window it came from in `@claude_origin`, and attaches to
-  it in a popup.
-- The **hooks** set `@claude_state` / `@claude_state_at` on each session as Claude
-  works.
-- The **picker** lists sessions matching the prefix, reads their state and a live
-  `capture-pane` preview, and on selection moves your client to the session's
-  origin window before resuming it in the popup.
-- Pressing `prefix` + `u` **from inside a session popup** detaches that popup
-  first (closing it), then reopens the picker full-size on the outer host client —
-  so you never end up with a cramped popup-in-popup.
+- The **hooks** set `@claude_state` / `@claude_state_at` as a **pane-scoped**
+  option on each pane running Claude. Because the option lives on the pane, it
+  disappears automatically when the pane closes — no stale state to clean up.
+- The **picker** lists every pane, reads each pane's own state with
+  `show-options -p` (not a `#{@claude_state}` format, which would inherit the
+  value from the window/session and tag unrelated panes), shows a live
+  `capture-pane` preview, and on selection switches your client to the pane's
+  window and focuses it.
 
 ## License
 
-[MIT](LICENSE) © Takuya Matsuyama
+[MIT](LICENSE) © Takuya Matsuyama (original), nozomi-iida (modifications)

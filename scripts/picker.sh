@@ -22,12 +22,12 @@ emit_rows() {
     state=$(tmux show-options -pqv -t "$pane" @claude_state 2>/dev/null)
     [ -z "$state" ] && continue
     # The pane-scoped state is never cleared when Claude exits, because Claude
-    # runs inside a long-lived shell pane that outlives it. So a pane back at its
-    # shell prompt still carries a stale state. Skip it: if the foreground
-    # command is a shell, Claude is gone regardless of how it ended.
-    case "$cmd" in
-    zsh | bash | fish | sh) continue ;;
-    esac
+    # runs inside a long-lived pane that outlives it — and a headless `claude -p`
+    # (e.g. lazygit's commit-message command) tags whatever pane it ran in,
+    # including editor panes. Either way a stale state lingers on a pane that is
+    # no longer interactive Claude. Show only panes whose foreground command is
+    # still Claude; any other command means Claude is gone, whatever it was.
+    [ "$cmd" = claude ] || continue
     at=$(tmux show-options -pqv -t "$pane" @claude_state_at 2>/dev/null)
     case "$state" in
     waiting) icon=$'\033[33m●\033[0m waiting' rank=0 ;; # yellow - needs input

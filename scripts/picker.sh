@@ -46,14 +46,31 @@ emit_rows() {
   done | sort -t$'\t' -k1,1n -k5,5n
 }
 
+# Re-entrant mode: fzf's periodic reload calls back into this script with
+# `--emit` to regenerate the row list without spawning a second fzf.
+if [ "${1:-}" = --emit ]; then
+  emit_rows
+  exit 0
+fi
+
 if ! command -v fzf >/dev/null 2>&1; then
   tmux display-message "tmux-claude-monitor: fzf is required for the picker"
   exit 0
 fi
 
 export FZF_DEFAULT_OPTS=''
+# Refresh the list (and the focused preview) every $interval seconds while the
+# popup is open, so a pane that flips working->idle updates live. fzf has no
+# native timer, so we self-loop: the `load` event fires whenever the result
+# list finishes loading, and we answer it by sleeping then reloading — which
+# triggers `load` again. reload-sync keeps the old rows on screen until the new
+# ones are ready (no flicker), and --track keeps the cursor on the same pane
+# even when sorting moves it between groups.
+interval=$(tmux show-options -gqv @claude_picker_interval 2>/dev/null)
+[ -z "$interval" ] && interval=2
 sel=$(emit_rows | fzf --ansi --delimiter='\t' --with-nth=4,5,6,7 \
-  --reverse --cycle --header='Claude panes · enter: jump' \
+  --reverse --cycle --track --header='Claude panes · enter: jump' \
+  --bind="load:reload-sync(sleep $interval; '$DIR/picker.sh' --emit)+refresh-preview" \
   --preview="tmux capture-pane -ept {2}" --preview-window='right,62%,wrap')
 
 [ -z "$sel" ] && exit 0

@@ -9,7 +9,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$DIR/helpers.sh"
 
 emit_rows() {
-  local now pane state at target wname path cmd icon rank ago
+  local now pane state at target wname path cmd icon rank ago short_path
   now=$(date +%s)
   # One row per pane across all sessions. The state is read with `show-options -p`
   # rather than a `#{@claude_state}` format, because the format inherits the
@@ -36,10 +36,12 @@ emit_rows() {
     *) icon=$'\033[90m●\033[0m   ?    ' rank=2 ;;       # grey   - unknown
     esac
     if [ -n "$at" ]; then ago="$(((now - at) / 60))m"; else ago='-'; fi
+    # Show only the last path segment (leaf directory) to keep rows short.
+    short_path="$(basename "$path")"
     # rank \t pane \t target \t icon \t age \t window \t path
     # (rank/pane/target hidden via --with-nth)
     printf '%s\t%s\t%s\t%s\t%5s\t%s\t%s\n' \
-      "$rank" "$pane" "$target" "$icon" "$ago" "$wname" "${path/#$HOME/~}"
+      "$rank" "$pane" "$target" "$icon" "$ago" "$wname" "$short_path"
     # rank asc (attention-needed floats up), then age asc so the pane that
     # finished just now sits at the top of its group. -k5,5n reads the leading
     # number of the age field ("5m" -> 5; "-" -> 0).
